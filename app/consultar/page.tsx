@@ -11,48 +11,40 @@ export default function ConsultarPage() {
   async function handleConsult() {
     const clean = code.trim().toUpperCase()
     if (clean.length !== 6) { setError('El código tiene 6 caracteres.'); return }
-
     setLoading(true)
     setError('')
     const res = await fetch(`/api/sessions/${clean}`)
     if (!res.ok) { setError('Sala no encontrada.'); setLoading(false); return }
     const data = await res.json()
-    if (data.session.status === 'finished') {
-      router.push(`/results/${clean}`)
-    } else {
-      router.push(`/leaderboard/${clean}`)
-    }
+    router.push(data.session.status === 'finished' ? `/results/${clean}` : `/leaderboard/${clean}`)
   }
 
   return (
-    <main className="min-h-screen bg-white px-4 py-8 max-w-md mx-auto flex flex-col">
-      <button onClick={() => router.back()} className="text-sm text-gray-400 mb-6">← Volver</button>
+    <main className="min-h-screen bg-gray-950 flex flex-col px-4 py-8">
+      <button onClick={() => router.back()} className="text-sm text-gray-600 mb-8">← Volver</button>
 
       <div className="mb-8">
-        <div className="text-3xl mb-1">📊</div>
-        <h1 className="text-2xl font-black text-gray-900">Consultar sala</h1>
-        <p className="text-gray-500 text-sm mt-1">Ver clasificación en directo o resultados finales</p>
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Públic</div>
+        <h1 className="text-4xl font-black text-white">Ver resultados</h1>
+        <p className="text-gray-500 text-sm mt-2">Clasificación en directo o resultados finales</p>
       </div>
 
       <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Código de sala</label>
-          <input
-            className="w-full border border-gray-300 rounded-xl px-4 py-4 text-3xl font-black text-center tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-gray-400"
-            placeholder="XXXXXX"
-            value={code}
-            maxLength={6}
-            onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
-            onKeyDown={e => e.key === 'Enter' && handleConsult()}
-          />
-        </div>
+        <input
+          className="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-5 text-4xl font-black text-center tracking-widest uppercase text-white focus:outline-none focus:ring-2 focus:ring-gray-500 placeholder-gray-600"
+          placeholder="XXXXXX"
+          value={code}
+          maxLength={6}
+          onChange={e => { setCode(e.target.value.toUpperCase()); setError('') }}
+          onKeyDown={e => e.key === 'Enter' && handleConsult()}
+        />
 
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
         <button
           onClick={handleConsult}
           disabled={loading || code.trim().length !== 6}
-          className="w-full bg-gray-800 active:bg-gray-900 disabled:opacity-40 text-white font-bold rounded-2xl py-4 text-xl transition-colors"
+          className="w-full bg-gray-800 active:bg-gray-700 disabled:opacity-40 text-white font-black rounded-3xl py-6 text-2xl transition-colors"
         >
           {loading ? 'Buscando...' : 'Ver clasificación →'}
         </button>

@@ -24,7 +24,7 @@ CREATE TABLE runs (
   elapsed_ms bigint GENERATED ALWAYS AS (
     CASE
       WHEN start_ts IS NOT NULL AND finish_ts IS NOT NULL
-      THEN EXTRACT(EPOCH FROM (finish_ts - start_ts))::bigint * 1000
+      THEN (EXTRACT(EPOCH FROM (finish_ts - start_ts)) * 1000)::bigint
       ELSE NULL
     END
   ) STORED,
