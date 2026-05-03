@@ -4,7 +4,7 @@ import { generateJoinCode } from '@/lib/joinCode'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { name, participants } = body as { name: string; participants: string[] }
+  const { name, participants } = body as { name: string; participants: Array<{ bib: string; name: string } | string> }
 
   if (!name || !participants || participants.length === 0) {
     return NextResponse.json({ error: 'name and participants required' }, { status: 400 })
@@ -28,11 +28,14 @@ export async function POST(req: NextRequest) {
 
   if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })
 
-  const rows = participants.map((p, i) => ({
-    session_id: session.id,
-    name: p.trim(),
-    order_num: i + 1,
-  }))
+  const rows = participants.map((p, i) => {
+    const isObj = typeof p === 'object'
+    return {
+      session_id: session.id,
+      name: isObj ? p.name : (p as string).trim(),
+      order_num: isObj && p.bib ? parseInt(p.bib) || (i + 1) : i + 1,
+    }
+  })
 
   const { error: participantsError } = await supabaseServer.from('participants').insert(rows)
   if (participantsError) return NextResponse.json({ error: participantsError.message }, { status: 500 })

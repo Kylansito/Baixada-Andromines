@@ -30,7 +30,7 @@ export default function Leaderboard({ participants, runs }: Props) {
                 <div key={run.id} className={`flex items-center px-4 py-3 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <span className="w-8 font-bold text-gray-400">{i + 1}</span>
                   <div className="flex-1">
-                    <div className="font-semibold">{p?.name ?? '—'}</div>
+                    <div className="font-semibold">{p?.name ?? '—'} <span className="text-xs text-gray-400 font-normal">#{p?.order_num}</span></div>
                     {p?.vehicle && <div className="text-sm text-gray-500">{p.vehicle}</div>}
                   </div>
                   <span className="font-mono font-bold text-lg">{formatTime(run.elapsed_ms!)}</span>
