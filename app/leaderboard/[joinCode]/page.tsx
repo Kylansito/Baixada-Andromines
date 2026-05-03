@@ -48,7 +48,7 @@ export default function LeaderboardPage({ params }: { params: Promise<{ joinCode
       )}
 
       <div className="px-4 pb-8 mt-4">
-        <Leaderboard participants={participants} runs={runs} />
+        <Leaderboard participants={participants} runs={runs} totalLaps={session.total_laps} />
       </div>
     </main>
   )

@@ -6,6 +6,7 @@ export interface Session {
   name: string
   join_code: string
   status: SessionStatus
+  total_laps: number
   created_at: string
 }
 

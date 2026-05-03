@@ -1,6 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 
+async function checkAndFinishSession(sessionId: string, joinCode: string) {
+  const { data: session } = await supabaseServer
+    .from('sessions')
+    .select('total_laps, status')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session || session.status === 'finished') return
+
+  const { data: participants } = await supabaseServer
+    .from('participants')
+    .select('id')
+    .eq('session_id', sessionId)
+
+  if (!participants || participants.length === 0) return
+
+  const { data: runs } = await supabaseServer
+    .from('runs')
+    .select('participant_id, status, lap')
+    .eq('session_id', sessionId)
+
+  if (!runs) return
+
+  const allDone = participants.every(p => {
+    const pRuns = runs.filter(r => r.participant_id === p.id)
+    const hasDnf = pRuns.some(r => r.status === 'dnf')
+    const finishedLaps = pRuns.filter(r => r.status === 'finished').length
+    return hasDnf || finishedLaps >= session.total_laps
+  })
+
+  if (allDone) {
+    await supabaseServer.from('sessions').update({ status: 'finished' }).eq('id', sessionId)
+    await supabaseServer.channel(`session:${joinCode.toUpperCase()}`).send({
+      type: 'broadcast',
+      event: 'session_finished',
+      payload: {},
+    })
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { join_code, run_id } = await req.json()
 
@@ -32,6 +72,8 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  await checkAndFinishSession(run.session_id, join_code)
+
   return NextResponse.json({ elapsed_ms: run.elapsed_ms })
 }
 
@@ -58,6 +100,8 @@ export async function DELETE(req: NextRequest) {
       participant_name: (run as any).participants?.name ?? '',
     },
   })
+
+  await checkAndFinishSession(run.session_id, join_code)
 
   return NextResponse.json({ ok: true })
 }

@@ -92,7 +92,7 @@ export default function AdminPage({ params }: { params: Promise<{ joinCode: stri
         </div>
       )}
 
-      <Leaderboard participants={participants} runs={runs} />
+      <Leaderboard participants={participants} runs={runs} totalLaps={session.total_laps} />
 
       {session.status !== 'finished' && (
         <button

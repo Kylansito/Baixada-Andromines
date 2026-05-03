@@ -60,11 +60,14 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
     )
   }
 
-  // Build per-participant run summary
+  const totalLaps = state.session.total_laps ?? 1
+
   const participantRuns = (p: Participant) => {
     const pRuns = runs.filter(r => r.participant_id === p.id && r.status === 'finished')
+    const hasDnf = runs.some(r => r.participant_id === p.id && r.status === 'dnf')
     const best = pRuns.length > 0 ? Math.min(...pRuns.map(r => r.elapsed_ms ?? Infinity)) : null
-    return { laps: pRuns.length, best }
+    const done = hasDnf || pRuns.length >= totalLaps
+    return { laps: pRuns.length, best, done, hasDnf }
   }
 
   const sorted = [...participants].sort((a, b) => a.order_num - b.order_num)
@@ -82,13 +85,16 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
         </label>
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {sorted.map(p => {
-            const { laps, best } = participantRuns(p)
+            const { laps, best, done, hasDnf } = participantRuns(p)
             return (
               <button
                 key={p.id}
-                onClick={() => setSelectedId(p.id)}
+                onClick={() => !done && setSelectedId(p.id)}
+                disabled={done}
                 className={`w-full flex items-center gap-4 rounded-2xl px-5 py-4 transition-all text-left ${
-                  selectedId === p.id ? 'bg-green-500 text-white' : 'bg-gray-800 text-white active:bg-gray-700'
+                  done ? 'bg-gray-900 opacity-40 cursor-not-allowed' :
+                  selectedId === p.id ? 'bg-green-500 text-white' :
+                  'bg-gray-800 text-white active:bg-gray-700'
                 }`}
               >
                 <span className={`font-black text-xl w-10 text-center ${selectedId === p.id ? 'text-white' : 'text-gray-400'}`}>
@@ -97,11 +103,17 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
                 <div className="flex-1">
                   <div className="font-bold text-lg leading-tight">{p.name}</div>
                   <div className={`text-xs mt-0.5 ${selectedId === p.id ? 'text-white/70' : 'text-gray-500'}`}>
-                    {laps === 0 ? 'Sin vueltas' : `${laps} vuelta${laps > 1 ? 's' : ''} · mejor ${formatTime(best!)}`}
+                    {hasDnf ? 'DNF' :
+                     laps === 0 ? 'Sin vueltas' :
+                     `${laps}/${totalLaps} vueltas${best !== null ? ` · mejor ${formatTime(best)}` : ''}`}
                   </div>
                 </div>
-                <span className={`text-sm font-black px-2 py-1 rounded-lg ${selectedId === p.id ? 'bg-white/20' : 'bg-gray-700 text-gray-400'}`}>
-                  V{laps + 1}
+                <span className={`text-sm font-black px-2 py-1 rounded-lg ${
+                  done ? 'bg-gray-700 text-gray-500' :
+                  selectedId === p.id ? 'bg-white/20' :
+                  'bg-gray-700 text-gray-400'
+                }`}>
+                  {done ? '✓' : `V${laps + 1}`}
                 </span>
               </button>
             )

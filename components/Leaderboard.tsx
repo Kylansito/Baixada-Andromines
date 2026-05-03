@@ -5,11 +5,12 @@ import type { Participant, Run } from '@/types'
 interface Props {
   participants: Participant[]
   runs: Run[]
+  totalLaps?: number
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-export default function Leaderboard({ participants, runs }: Props) {
+export default function Leaderboard({ participants, runs, totalLaps = 1 }: Props) {
   const pMap = Object.fromEntries(participants.map(p => [p.id, p]))
 
   // Best time per participant (ignoring DNF)
@@ -52,7 +53,7 @@ export default function Leaderboard({ participants, runs }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="font-black text-lg leading-tight truncate">{p.name}</div>
                   <div className={`text-xs ${i < 3 ? 'opacity-60' : 'text-gray-400'}`}>
-                    #{p.order_num} · {lapsCompleted} volta{lapsCompleted !== 1 ? 'es' : ''}
+                    #{p.order_num} · {lapsCompleted}/{totalLaps} volta{totalLaps !== 1 ? 'es' : ''}
                   </div>
                 </div>
                 <span className={`font-mono font-black text-xl tabular-nums ${i < 3 ? '' : 'text-green-400'}`}>

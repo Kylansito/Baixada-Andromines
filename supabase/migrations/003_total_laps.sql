@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS total_laps int NOT NULL DEFAULT 1;

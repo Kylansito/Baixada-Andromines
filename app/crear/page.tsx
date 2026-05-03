@@ -10,6 +10,7 @@ interface ParticipantRow {
 export default function CrearPage() {
   const router = useRouter()
   const [sessionName, setSessionName] = useState('')
+  const [totalLaps, setTotalLaps] = useState(1)
   const [rows, setRows] = useState<ParticipantRow[]>([{ bib: '1', name: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,6 +39,7 @@ export default function CrearPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: sessionName.trim(),
+        total_laps: totalLaps,
         participants: valid.map(r => ({ bib: r.bib.trim(), name: r.name.trim() })),
       }),
     })
@@ -64,6 +66,24 @@ export default function CrearPage() {
             value={sessionName}
             onChange={e => setSessionName(e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Número de vueltas</label>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setTotalLaps(l => Math.max(1, l - 1))}
+              className="w-14 h-14 bg-gray-800 text-white text-2xl font-black rounded-2xl active:bg-gray-700 flex items-center justify-center"
+            >−</button>
+            <span className="flex-1 text-center text-5xl font-black text-white tabular-nums">{totalLaps}</span>
+            <button
+              onClick={() => setTotalLaps(l => Math.min(20, l + 1))}
+              className="w-14 h-14 bg-gray-800 text-white text-2xl font-black rounded-2xl active:bg-gray-700 flex items-center justify-center"
+            >+</button>
+          </div>
+          <p className="text-center text-xs text-gray-600 mt-2">
+            {totalLaps === 1 ? 'Una sola bajada por corredor' : `${totalLaps} bajadas por corredor`}
+          </p>
         </div>
 
         <div>
