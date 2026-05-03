@@ -1,7 +1,6 @@
 'use client'
 import { use, useState, useCallback } from 'react'
 import { useSession, useRealtimeEvents } from '@/hooks/useSession'
-import BigButton from '@/components/BigButton'
 import { formatTime } from '@/lib/format'
 import type { RealtimeEvent } from '@/types'
 
@@ -34,75 +33,90 @@ export default function JudgeFinishPage({ params }: { params: Promise<{ joinCode
       setErr(data.error)
     } else {
       setLastTime(data.elapsed_ms)
-      const name = state?.participants.find(p => {
-        const run = state.runs.find(r => r.id === runId)
-        return run && p.id === run.participant_id
-      })?.name ?? ''
+      const run = state?.runs.find(r => r.id === runId)
+      const name = state?.participants.find(p => p.id === run?.participant_id)?.name ?? ''
       setLastName(name)
       refetch()
     }
     setBusy(false)
   }
 
-  if (loading) return <Screen><p className="text-gray-400 text-center">Cargando...</p></Screen>
-  if (error || !state) return <Screen><p className="text-red-500 text-center">{error ?? 'Error'}</p></Screen>
+  if (loading) return <Waiting label="Cargando..." />
+  if (error || !state) return <Waiting label={error ?? 'Error'} />
 
   const { participants, runs } = state
   const activeRun = runs.find(r => r.status === 'started')
   const activeName = activeRun ? participants.find(p => p.id === activeRun.participant_id)?.name : null
+  const activeNum = activeRun ? participants.find(p => p.id === activeRun.participant_id)?.order_num : null
+
+  // Waiting state
+  if (!activeRun) {
+    return (
+      <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-8 gap-4">
+        <div className="text-6xl">👁</div>
+        <div className="text-xl font-black text-white text-center">Esperando salida...</div>
+        <div className="text-gray-500 text-sm text-center">El botón se activará cuando salga un corredor</div>
+        {lastTime !== null && (
+          <div className="mt-8 bg-green-500/10 border border-green-500/30 rounded-2xl px-6 py-5 text-center">
+            <div className="text-sm text-green-400 font-semibold mb-1">{lastName} · último tiempo</div>
+            <div className="text-4xl font-black font-mono text-green-400">{formatTime(lastTime)}</div>
+          </div>
+        )}
+        <div className="mt-8 text-xs text-gray-600">
+          <a href={`/admin/${joinCode}`}>Panel admin</a>
+        </div>
+      </main>
+    )
+  }
 
   return (
-    <Screen>
-      <div className="text-center mb-2">
-        <div className="text-4xl">🏆</div>
-        <h1 className="text-2xl font-black text-gray-900">Juez Llegada</h1>
-        <p className="text-sm text-gray-500">{state.session.name}</p>
+    <main className="min-h-screen bg-red-950 flex flex-col px-4 py-8">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="text-xs font-bold uppercase tracking-widest text-red-400">🏆 Juez Llegada</div>
+        <div className="text-lg font-black text-white mt-1">{state.session.name}</div>
       </div>
 
-      {!activeRun && !lastTime && (
-        <div className="bg-gray-100 rounded-xl px-4 py-8 text-center text-gray-500">
-          Esperando que salga un participante...
-        </div>
-      )}
-
-      {activeRun && (
-        <>
-          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl px-4 py-6 text-center">
-            <p className="text-sm text-yellow-600 font-semibold uppercase tracking-wide mb-1">En camino</p>
-            <p className="text-3xl font-black text-gray-900">{activeName}</p>
-          </div>
-
-          <BigButton
-            label="LLEGADA"
-            onClick={() => handleFinish(activeRun.id)}
-            loading={busy}
-            color="red"
-          />
-        </>
-      )}
+      {/* En camino */}
+      <div className="bg-white/10 rounded-3xl px-6 py-8 text-center mb-8">
+        <div className="text-sm font-bold uppercase tracking-widest text-red-300 mb-2">En camino</div>
+        <div className="text-4xl font-black text-white leading-tight">{activeName}</div>
+        <div className="text-red-300 text-xl mt-1">#{activeNum}</div>
+      </div>
 
       {err && (
-        <div className="bg-red-100 text-red-700 rounded-xl px-4 py-3 text-center font-semibold">{err}</div>
+        <div className="bg-red-500/20 text-red-300 rounded-2xl px-4 py-3 text-center font-bold mb-4">{err}</div>
       )}
 
       {lastTime !== null && (
-        <div className="bg-green-50 border border-green-300 rounded-2xl px-4 py-6 text-center">
-          <p className="text-sm text-green-600 font-semibold uppercase mb-1">{lastName} · Tiempo</p>
-          <p className="text-5xl font-black font-mono text-green-700">{formatTime(lastTime)}</p>
+        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl px-6 py-4 text-center mb-4">
+          <div className="text-xs text-green-400 font-semibold mb-1">{lastName} · anterior</div>
+          <div className="text-3xl font-black font-mono text-green-400">{formatTime(lastTime)}</div>
         </div>
       )}
 
-      <div className="text-center">
-        <a href={`/admin/${joinCode}`} className="text-sm text-gray-400 underline">Panel admin</a>
+      {/* Big button */}
+      <div className="mt-auto">
+        <button
+          onClick={() => handleFinish(activeRun.id)}
+          disabled={busy}
+          className="w-full bg-red-500 active:bg-red-700 disabled:opacity-50 text-white font-black rounded-3xl py-10 text-5xl shadow-lg transition-all"
+        >
+          {busy ? '...' : 'LLEGADA'}
+        </button>
       </div>
-    </Screen>
+
+      <div className="mt-4 text-center">
+        <a href={`/admin/${joinCode}`} className="text-xs text-red-800">Panel admin</a>
+      </div>
+    </main>
   )
 }
 
-function Screen({ children }: { children: React.ReactNode }) {
+function Waiting({ label }: { label: string }) {
   return (
-    <main className="min-h-screen bg-white px-4 py-8 max-w-md mx-auto flex flex-col gap-6 justify-center">
-      {children}
+    <main className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <p className="text-gray-400 text-lg">{label}</p>
     </main>
   )
 }

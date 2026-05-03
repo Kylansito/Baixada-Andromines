@@ -1,7 +1,6 @@
 'use client'
 import { use, useState, useCallback } from 'react'
 import { useSession, useRealtimeEvents } from '@/hooks/useSession'
-import BigButton from '@/components/BigButton'
 import type { Participant, RealtimeEvent } from '@/types'
 
 export default function JudgeStartPage({ params }: { params: Promise<{ joinCode: string }> }) {
@@ -9,8 +8,7 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
   const { state, loading, error, refetch } = useSession(joinCode)
   const [selectedId, setSelectedId] = useState<string>('')
   const [busy, setBusy] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
-  const [feedbackType, setFeedbackType] = useState<'ok' | 'err'>('ok')
+  const [feedback, setFeedback] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
   const onEvent = useCallback((e: RealtimeEvent) => {
     if (e.event === 'run_finished' || e.event === 'run_dnf') {
@@ -32,88 +30,110 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
     })
     const data = await res.json()
     if (!res.ok) {
-      setFeedback(data.error)
-      setFeedbackType('err')
+      setFeedback({ msg: data.error, type: 'err' })
     } else {
       const name = state?.participants.find(p => p.id === selectedId)?.name ?? ''
-      setFeedback(`¡${name} ha salido!`)
-      setFeedbackType('ok')
+      setFeedback({ msg: `¡${name} ha salido!`, type: 'ok' })
       setSelectedId('')
       refetch()
     }
     setBusy(false)
   }
 
-  if (loading) return <Screen><p className="text-gray-400">Cargando...</p></Screen>
-  if (error || !state) return <Screen><p className="text-red-500">{error ?? 'Error'}</p></Screen>
+  if (loading) return <FullScreen color="gray"><p className="text-gray-400 text-xl">Cargando...</p></FullScreen>
+  if (error || !state) return <FullScreen color="gray"><p className="text-red-400 text-xl">{error ?? 'Error'}</p></FullScreen>
 
   const { participants, runs } = state
   const doneIds = new Set(runs.filter(r => r.status !== 'pending').map(r => r.participant_id))
   const activeRun = runs.find(r => r.status === 'started')
-  const pending: Participant[] = participants.filter(p => !doneIds.has(p.id))
+  const pending: Participant[] = participants.filter(p => !doneIds.has(p.id)).sort((a, b) => a.order_num - b.order_num)
+
+  if (activeRun) {
+    const name = participants.find(p => p.id === activeRun.participant_id)?.name
+    return (
+      <FullScreen color="yellow">
+        <div className="text-6xl mb-4">⏱</div>
+        <div className="text-2xl font-black text-black text-center">{name}</div>
+        <div className="text-black/60 font-semibold text-center">En pista — espera a que llegue</div>
+        <div className="mt-8 text-sm text-black/40 text-center">
+          <a href={`/admin/${joinCode}`}>Panel admin</a>
+        </div>
+      </FullScreen>
+    )
+  }
+
+  if (pending.length === 0) {
+    return (
+      <FullScreen color="gray">
+        <div className="text-5xl mb-4">✅</div>
+        <div className="text-2xl font-black text-white text-center">Todos han bajado</div>
+        <div className="mt-8 text-sm text-gray-400 text-center">
+          <a href={`/admin/${joinCode}`}>Panel admin</a>
+        </div>
+      </FullScreen>
+    )
+  }
 
   return (
-    <Screen>
-      <div className="text-center mb-2">
-        <div className="text-4xl">🏁</div>
-        <h1 className="text-2xl font-black text-gray-900">Juez Salida</h1>
-        <p className="text-sm text-gray-500">{state.session.name}</p>
+    <main className="min-h-screen bg-gray-950 flex flex-col px-4 py-8">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-500">🏁 Juez Salida</div>
+        <div className="text-lg font-black text-white mt-1">{state.session.name}</div>
       </div>
 
-      {activeRun && (
-        <div className="bg-yellow-100 border border-yellow-300 rounded-xl px-4 py-3 text-center">
-          <p className="text-yellow-800 font-bold">
-            ⏱ En pista: {participants.find(p => p.id === activeRun.participant_id)?.name}
-          </p>
-          <p className="text-xs text-yellow-600">Espera a que llegue antes de salir otro</p>
-        </div>
-      )}
-
-      {!activeRun && (
-        <>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Selecciona participante</label>
-            <select
-              value={selectedId}
-              onChange={e => setSelectedId(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+      {/* Selector */}
+      <div className="mb-6">
+        <label className="block text-sm font-semibold text-gray-400 mb-3">Selecciona el siguiente corredor</label>
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {pending.map(p => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedId(p.id)}
+              className={`w-full flex items-center gap-4 rounded-2xl px-5 py-4 transition-all text-left ${
+                selectedId === p.id
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-800 text-white active:bg-gray-700'
+              }`}
             >
-              <option value="">— Elige —</option>
-              {pending.map(p => (
-                <option key={p.id} value={p.id}>{p.order_num}. {p.name}{p.vehicle ? ` · ${p.vehicle}` : ''}</option>
-              ))}
-            </select>
-            {pending.length === 0 && (
-              <p className="text-center text-gray-400 mt-2 text-sm">Todos han bajado</p>
-            )}
-          </div>
+              <span className={`font-black text-xl w-10 text-center ${selectedId === p.id ? 'text-white' : 'text-gray-400'}`}>
+                #{p.order_num}
+              </span>
+              <span className="font-bold text-lg">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <BigButton
-            label="SALIDA"
-            onClick={handleStart}
-            disabled={!selectedId || pending.length === 0}
-            loading={busy}
-            color="green"
-          />
-        </>
-      )}
-
+      {/* Feedback */}
       {feedback && (
-        <div className={`rounded-xl px-4 py-3 text-center font-semibold ${feedbackType === 'ok' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}`}>
-          {feedback}
+        <div className={`rounded-2xl px-4 py-3 text-center font-bold mb-4 ${feedback.type === 'ok' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+          {feedback.msg}
         </div>
       )}
 
-      <div className="text-center">
-        <a href={`/admin/${joinCode}`} className="text-sm text-gray-400 underline">Panel admin</a>
+      {/* Big button */}
+      <div className="mt-auto">
+        <button
+          onClick={handleStart}
+          disabled={!selectedId || busy}
+          className="w-full bg-green-500 active:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-black rounded-3xl py-8 text-4xl shadow-lg transition-all"
+        >
+          {busy ? '...' : 'SALIDA'}
+        </button>
       </div>
-    </Screen>
+
+      <div className="mt-4 text-center">
+        <a href={`/admin/${joinCode}`} className="text-xs text-gray-600">Panel admin</a>
+      </div>
+    </main>
   )
 }
 
-function Screen({ children }: { children: React.ReactNode }) {
+function FullScreen({ children, color }: { children: React.ReactNode; color: 'yellow' | 'gray' }) {
+  const bg = color === 'yellow' ? 'bg-yellow-400' : 'bg-gray-950'
   return (
-    <main className="min-h-screen bg-white px-4 py-8 max-w-md mx-auto flex flex-col gap-6 justify-center">
+    <main className={`min-h-screen ${bg} flex flex-col items-center justify-center px-8 gap-4`}>
       {children}
     </main>
   )
