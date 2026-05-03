@@ -26,6 +26,7 @@ export interface Run {
   finish_ts: string | null
   elapsed_ms: number | null
   status: RunStatus
+  lap: number
   created_at: string
 }
 

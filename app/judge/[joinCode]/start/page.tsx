@@ -1,6 +1,7 @@
 'use client'
 import { use, useState, useCallback } from 'react'
 import { useSession, useRealtimeEvents } from '@/hooks/useSession'
+import { formatTime } from '@/lib/format'
 import type { Participant, RealtimeEvent } from '@/types'
 
 export default function JudgeStartPage({ params }: { params: Promise<{ joinCode: string }> }) {
@@ -33,91 +34,92 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
       setFeedback({ msg: data.error, type: 'err' })
     } else {
       const name = state?.participants.find(p => p.id === selectedId)?.name ?? ''
-      setFeedback({ msg: `¡${name} ha salido!`, type: 'ok' })
+      setFeedback({ msg: `¡${name} ha salido! Vuelta ${data.lap}`, type: 'ok' })
       setSelectedId('')
       refetch()
     }
     setBusy(false)
   }
 
-  if (loading) return <FullScreen color="gray"><p className="text-gray-400 text-xl">Cargando...</p></FullScreen>
-  if (error || !state) return <FullScreen color="gray"><p className="text-red-400 text-xl">{error ?? 'Error'}</p></FullScreen>
+  if (loading) return <FullScreen><p className="text-gray-400 text-xl">Cargando...</p></FullScreen>
+  if (error || !state) return <FullScreen><p className="text-red-400 text-xl">{error ?? 'Error'}</p></FullScreen>
 
   const { participants, runs } = state
-  const doneIds = new Set(runs.filter(r => r.status !== 'pending').map(r => r.participant_id))
   const activeRun = runs.find(r => r.status === 'started')
-  const pending: Participant[] = participants.filter(p => !doneIds.has(p.id)).sort((a, b) => a.order_num - b.order_num)
 
   if (activeRun) {
     const name = participants.find(p => p.id === activeRun.participant_id)?.name
     return (
-      <FullScreen color="yellow">
-        <div className="text-6xl mb-4">⏱</div>
-        <div className="text-2xl font-black text-black text-center">{name}</div>
-        <div className="text-black/60 font-semibold text-center">En pista — espera a que llegue</div>
-        <div className="mt-8 text-sm text-black/40 text-center">
-          <a href={`/admin/${joinCode}`}>Panel admin</a>
-        </div>
-      </FullScreen>
+      <main className="min-h-screen bg-yellow-400 flex flex-col items-center justify-center px-8 gap-4">
+        <div className="text-6xl mb-2">⏱</div>
+        <div className="text-3xl font-black text-black text-center">{name}</div>
+        <div className="text-black/60 font-bold text-xl text-center">Vuelta {activeRun.lap} en curso</div>
+        <div className="text-black/40 text-sm text-center mt-2">Espera a que llegue antes de salir otro</div>
+        <div className="mt-8 text-sm text-black/30"><a href={`/admin/${joinCode}`}>Panel admin</a></div>
+      </main>
     )
   }
 
-  if (pending.length === 0) {
-    return (
-      <FullScreen color="gray">
-        <div className="text-5xl mb-4">✅</div>
-        <div className="text-2xl font-black text-white text-center">Todos han bajado</div>
-        <div className="mt-8 text-sm text-gray-400 text-center">
-          <a href={`/admin/${joinCode}`}>Panel admin</a>
-        </div>
-      </FullScreen>
-    )
+  // Build per-participant run summary
+  const participantRuns = (p: Participant) => {
+    const pRuns = runs.filter(r => r.participant_id === p.id && r.status === 'finished')
+    const best = pRuns.length > 0 ? Math.min(...pRuns.map(r => r.elapsed_ms ?? Infinity)) : null
+    return { laps: pRuns.length, best }
   }
+
+  const sorted = [...participants].sort((a, b) => a.order_num - b.order_num)
 
   return (
     <main className="min-h-screen bg-gray-950 flex flex-col px-4 py-8">
-      {/* Header */}
       <div className="mb-6">
         <div className="text-xs font-bold uppercase tracking-widest text-gray-500">🏁 Juez Salida</div>
         <div className="text-lg font-black text-white mt-1">{state.session.name}</div>
       </div>
 
-      {/* Selector */}
       <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-400 mb-3">Selecciona el siguiente corredor</label>
-        <div className="space-y-2 max-h-72 overflow-y-auto">
-          {pending.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedId(p.id)}
-              className={`w-full flex items-center gap-4 rounded-2xl px-5 py-4 transition-all text-left ${
-                selectedId === p.id
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-800 text-white active:bg-gray-700'
-              }`}
-            >
-              <span className={`font-black text-xl w-10 text-center ${selectedId === p.id ? 'text-white' : 'text-gray-400'}`}>
-                #{p.order_num}
-              </span>
-              <span className="font-bold text-lg">{p.name}</span>
-            </button>
-          ))}
+        <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">
+          Selecciona el corredor
+        </label>
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {sorted.map(p => {
+            const { laps, best } = participantRuns(p)
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedId(p.id)}
+                className={`w-full flex items-center gap-4 rounded-2xl px-5 py-4 transition-all text-left ${
+                  selectedId === p.id ? 'bg-green-500 text-white' : 'bg-gray-800 text-white active:bg-gray-700'
+                }`}
+              >
+                <span className={`font-black text-xl w-10 text-center ${selectedId === p.id ? 'text-white' : 'text-gray-400'}`}>
+                  #{p.order_num}
+                </span>
+                <div className="flex-1">
+                  <div className="font-bold text-lg leading-tight">{p.name}</div>
+                  <div className={`text-xs mt-0.5 ${selectedId === p.id ? 'text-white/70' : 'text-gray-500'}`}>
+                    {laps === 0 ? 'Sin vueltas' : `${laps} vuelta${laps > 1 ? 's' : ''} · mejor ${formatTime(best!)}`}
+                  </div>
+                </div>
+                <span className={`text-sm font-black px-2 py-1 rounded-lg ${selectedId === p.id ? 'bg-white/20' : 'bg-gray-700 text-gray-400'}`}>
+                  V{laps + 1}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Feedback */}
       {feedback && (
         <div className={`rounded-2xl px-4 py-3 text-center font-bold mb-4 ${feedback.type === 'ok' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
           {feedback.msg}
         </div>
       )}
 
-      {/* Big button */}
       <div className="mt-auto">
         <button
           onClick={handleStart}
           disabled={!selectedId || busy}
-          className="w-full bg-green-500 active:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-black rounded-3xl py-8 text-4xl shadow-lg transition-all"
+          className="w-full bg-green-500 active:bg-green-700 disabled:bg-gray-800 disabled:text-gray-600 text-white font-black rounded-3xl py-8 text-4xl shadow-lg transition-all"
         >
           {busy ? '...' : 'SALIDA'}
         </button>
@@ -130,10 +132,9 @@ export default function JudgeStartPage({ params }: { params: Promise<{ joinCode:
   )
 }
 
-function FullScreen({ children, color }: { children: React.ReactNode; color: 'yellow' | 'gray' }) {
-  const bg = color === 'yellow' ? 'bg-yellow-400' : 'bg-gray-950'
+function FullScreen({ children }: { children: React.ReactNode }) {
   return (
-    <main className={`min-h-screen ${bg} flex flex-col items-center justify-center px-8 gap-4`}>
+    <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-8 gap-4">
       {children}
     </main>
   )
